@@ -30,7 +30,11 @@ stock_list = [
 
 
 st.sidebar.header("Settings")
-selected_stock = st.sidebar.selectbox("Choose a Stock", stock_list)
+# show user-friendly labels (hide the .NS suffix) but keep underlying tickers for calculations
+selected_stock = st.sidebar.selectbox("Choose a Stock", stock_list, format_func=lambda x: x.replace('.NS', ''))
+
+# a cleaned display name for UI elements (no .NS)
+display_stock = selected_stock.replace('.NS', '')
 
 # Session cache for per-stock results to avoid recomputing on reruns
 if "signals_cache" not in st.session_state:
@@ -42,7 +46,9 @@ def compute_signal_for_stock(stock: str):
     if stock in st.session_state["signals_cache"]:
         return st.session_state["signals_cache"][stock]
 
-    with st.spinner(f"Loading signal for {stock}..."):
+    # use cleaned label in spinner
+    label = stock.replace('.NS', '')
+    with st.spinner(f"Loading signal for {label}..."):
         data = get_stock_data(stock)
         signal = None
         if data is not None and not data.empty:
@@ -54,14 +60,14 @@ def compute_signal_for_stock(stock: str):
 
 # Only compute signal for the currently selected stock (initially first in list)
 current_signal = compute_signal_for_stock(selected_stock)
-signals_df = pd.DataFrame([{"Stock": selected_stock, "Signal": current_signal}])
+signals_df = pd.DataFrame([{"Stock": display_stock, "Signal": current_signal}])
 
 st.subheader("📌 Latest Predictions")
 st.dataframe(signals_df)
 
 # Technical Chart
-st.subheader(f"📈 Technical Chart for {selected_stock}")
-with st.spinner(f"Loading chart for {selected_stock}..."):
+st.subheader(f"📈 Technical Chart for {display_stock}")
+with st.spinner(f"Loading chart for {display_stock}..."):
     data = get_stock_data(selected_stock)
     if data is not None:
         fig = plot_chart(data, selected_stock)
