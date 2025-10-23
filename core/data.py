@@ -4,9 +4,9 @@ import pandas as pd
 import streamlit as st
 
 @st.cache_data(ttl=3600)
-def get_stock_data(ticker):
+def get_stock_data(ticker, period="5y"):
     try:
-        data = yf.download(ticker, period="2y", progress=False)
+        data = yf.download(ticker, period=period, progress=False)
     except Exception as e:
         try:
             st.session_state["last_data_error"] = f"Error downloading {ticker}: {e}"

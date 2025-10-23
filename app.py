@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from core.data import get_stock_data
-from core.model import train_model, predict_signal
+from core.model import train_model, predict_signal, predict_latest_signal
 from core.charts import plot_chart
 from core.backtest import backtest_simple, backtest_realistic, get_nifty50_benchmark
 from core.metrics import calculate_metrics, analyze_trades, clean_series
@@ -33,6 +33,9 @@ st.sidebar.header("Settings")
 # show user-friendly labels (hide the .NS suffix) but keep underlying tickers for calculations
 selected_stock = st.sidebar.selectbox("Choose a Stock", stock_list, format_func=lambda x: x.replace('.NS', ''))
 
+# history length selector
+history_period = st.sidebar.selectbox("History", ["1y", "2y", "5y", "max"], index=2)
+
 # a cleaned display name for UI elements (no .NS)
 display_stock = selected_stock.replace('.NS', '')
 
@@ -49,11 +52,16 @@ def compute_signal_for_stock(stock: str):
     # use cleaned label in spinner
     label = stock.replace('.NS', '')
     with st.spinner(f"Loading signal for {label}..."):
-        data = get_stock_data(stock)
+        data = get_stock_data(stock, period=history_period)
         signal = None
         if data is not None and not data.empty:
-            model = train_model(data)
-            signal = predict_signal(model, data)
+            # train on historical data up to the last row and predict the latest row to avoid leakage
+            try:
+                signal = predict_latest_signal(data)
+            except Exception:
+                # fallback to previous behavior if helper fails
+                model = train_model(data)
+                signal = predict_signal(model, data)
     st.session_state["signals_cache"][stock] = signal
     return signal
 
@@ -68,7 +76,7 @@ st.dataframe(signals_df)
 # Technical Chart
 st.subheader(f"📈 Technical Chart for {display_stock}")
 with st.spinner(f"Loading chart for {display_stock}..."):
-    data = get_stock_data(selected_stock)
+    data = get_stock_data(selected_stock, period=history_period)
     if data is not None:
         fig = plot_chart(data, selected_stock)
         st.plotly_chart(fig, use_container_width=True)
@@ -98,8 +106,8 @@ if "nifty_growth" not in st.session_state:
 
 if st.button("Run Backtests for Selected Stock"):
     with st.spinner("Running backtests for selected stock (this may take a while)..."):
-        simple_growth = backtest_simple([selected_stock])
-        realistic_growth, trades = backtest_realistic([selected_stock])
+        simple_growth = backtest_simple([selected_stock], period=history_period)
+        realistic_growth, trades = backtest_realistic([selected_stock], period=history_period)
         # fetch benchmark once
         if st.session_state.get("nifty_growth") is None:
             st.session_state["nifty_growth"] = get_nifty50_benchmark()
