@@ -106,22 +106,28 @@ if "nifty_growth" not in st.session_state:
 
 if st.button("Run Backtests for Selected Stock"):
     with st.spinner("Running backtests for selected stock (this may take a while)..."):
-        simple_growth = backtest_simple([selected_stock], period=history_period)
-        realistic_growth, trades = backtest_realistic([selected_stock], period=history_period)
-        # fetch benchmark once
+        simple_growth, simple_diag = backtest_simple([selected_stock], period=history_period)
+        realistic_growth, trades, realistic_diag = backtest_realistic([selected_stock], period=history_period)
+        # fetch benchmark once using selected history_period
         if st.session_state.get("nifty_growth") is None:
-            st.session_state["nifty_growth"] = get_nifty50_benchmark()
+            st.session_state["nifty_growth"] = get_nifty50_benchmark(period=history_period)
         nifty_growth = st.session_state["nifty_growth"]
-        # store per-stock
-        st.session_state["backtests"][selected_stock] = (simple_growth, realistic_growth, nifty_growth, trades)
+        # store per-stock along with diagnostics
+        st.session_state["backtests"][selected_stock] = (simple_growth, realistic_growth, nifty_growth, trades, simple_diag, realistic_diag)
 
 # load backtests for selected stock if available
 cached = st.session_state["backtests"].get(selected_stock)
 if cached is None:
     st.info("Backtests not run for this stock. Click 'Run Backtests for Selected Stock' to execute backtesting.")
     simple_growth = realistic_growth = nifty_growth = trades = None
+    simple_diag = realistic_diag = None
 else:
-    simple_growth, realistic_growth, nifty_growth, trades = cached
+    # backward-compatible: older cached entries may not include diagnostics
+    if len(cached) == 4:
+        simple_growth, realistic_growth, nifty_growth, trades = cached
+        simple_diag = realistic_diag = None
+    else:
+        simple_growth, realistic_growth, nifty_growth, trades, simple_diag, realistic_diag = cached
 
 # Plot backtest results (selected stock vs benchmark)
 fig2 = go.Figure()
@@ -136,6 +142,20 @@ if nifty_growth is not None and not getattr(nifty_growth, "empty", False):
 if len(fig2.data) > 0:
     fig2.update_layout(title=f"Backtest Comparison: {display_stock}", xaxis_title="Date", yaxis_title="Value")
     st.plotly_chart(fig2, use_container_width=True)
+
+# Diagnostics panel: show test-slice length and predicted signal counts when available
+st.subheader("🩺 Backtest Diagnostics")
+if simple_diag is None and realistic_diag is None:
+    st.info("Run backtests to see diagnostics (test-slice length and predicted signal counts).")
+else:
+    # prefer realistic diagnostics if available, otherwise simple
+    diag = realistic_diag if realistic_diag is not None else simple_diag
+    cols = st.columns(3)
+    cols[0].metric("Test slice length", diag.get("test_slice_length", 0))
+    counts = diag.get("predicted_signal_counts", {})
+    cols[1].metric("Predicted BUY", counts.get("BUY", 0))
+    cols[2].metric("Predicted SELL", counts.get("SELL", 0))
+    st.write("Predicted HOLD:", counts.get("HOLD", 0))
 
 # Performance metrics
 st.subheader("📊 Performance Metrics")
