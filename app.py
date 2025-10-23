@@ -72,8 +72,19 @@ with st.spinner(f"Loading chart for {display_stock}..."):
     if data is not None:
         fig = plot_chart(data, selected_stock)
         st.plotly_chart(fig, use_container_width=True)
+        with st.expander("Last 15 Days Data", expanded=True):
+            st.write(data.head(15))
     else:
-        st.warning("No data available for the selected stock.")
+        # show last data error if available
+        last_err = None
+        try:
+            last_err = st.session_state.get("last_data_error")
+        except Exception:
+            last_err = None
+        if last_err:
+            st.error(last_err)
+        else:
+            st.warning("No data available for the selected stock.")
 
 # Backtesting
 st.subheader("💰 Portfolio Backtest vs NIFTY50")
