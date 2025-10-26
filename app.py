@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from core.data import get_stock_data
-from core.model import train_model, predict_signal, predict_latest_signal
+from core.model import train_model, predict_signal, predict_latest_signal, get_feature_importance
 from core.charts import plot_chart
 from core.backtest import backtest_simple, backtest_realistic, get_nifty50_benchmark
 from core.metrics import calculate_metrics, analyze_trades, clean_series
@@ -58,10 +58,13 @@ def compute_signal_for_stock(stock: str):
             # train on historical data up to the last row and predict the latest row to avoid leakage
             try:
                 signal = predict_latest_signal(data)
-            except Exception:
+            except Exception as e:
                 # fallback to previous behavior if helper fails
-                model = train_model(data)
-                signal = predict_signal(model, data)
+                try:
+                    model, _ = train_model(data)
+                    signal = predict_signal(model, data)
+                except Exception:
+                    signal = None
     st.session_state["signals_cache"][stock] = signal
     return signal
 

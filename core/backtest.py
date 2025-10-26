@@ -2,7 +2,7 @@ import pandas as pd
 import yfinance as yf
 from xgboost import XGBClassifier
 from .data import get_stock_data
-from .model import train_model
+from .model import train_model, BASE_FEATURES, EXTENDED_FEATURES
 
 def backtest_simple(stock_list, period="5y"):
     """Run a simple strategy backtest over provided stocks and return cumulative portfolio growth and diagnostics.
@@ -27,12 +27,26 @@ def backtest_simple(stock_list, period="5y"):
         train = data.iloc[:split]
         test = data.iloc[split:].copy()
 
-        features = ["RSI", "EMA_10", "EMA_20", "MACD"]
+        # Use extended features if available
+        features = EXTENDED_FEATURES if all(f in data.columns for f in ["BB_Width", "Stoch", "ATR"]) else BASE_FEATURES
+        features = [f for f in features if f in data.columns]
+        
         label_mapping = {"SELL": 0, "HOLD": 1, "BUY": 2}
 
         X_train = train[features].astype(float)
         y_train = train["Signal"].map(label_mapping)
-        model = XGBClassifier(use_label_encoder=False, eval_metric="mlogloss", verbosity=0)
+        model = XGBClassifier(
+            n_estimators=100,
+            max_depth=6,
+            learning_rate=0.1,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            min_child_weight=3,
+            gamma=0,
+            use_label_encoder=False, 
+            eval_metric="mlogloss", 
+            verbosity=0
+        )
         model.fit(X_train, y_train)
 
         preds = model.predict(test[features])
@@ -84,12 +98,26 @@ def backtest_realistic(stock_list, initial_capital=100000, position_size=0.2, co
         train = data.iloc[:split]
         test = data.iloc[split:].copy().reset_index()
 
-        features = ["RSI", "EMA_10", "EMA_20", "MACD"]
+        # Use extended features if available
+        features = EXTENDED_FEATURES if all(f in data.columns for f in ["BB_Width", "Stoch", "ATR"]) else BASE_FEATURES
+        features = [f for f in features if f in data.columns]
+        
         label_mapping = {"SELL": 0, "HOLD": 1, "BUY": 2}
 
         X_train = train[features].astype(float)
         y_train = train["Signal"].map(label_mapping)
-        model = XGBClassifier(use_label_encoder=False, eval_metric="mlogloss", verbosity=0)
+        model = XGBClassifier(
+            n_estimators=100,
+            max_depth=6,
+            learning_rate=0.1,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            min_child_weight=3,
+            gamma=0,
+            use_label_encoder=False, 
+            eval_metric="mlogloss", 
+            verbosity=0
+        )
         model.fit(X_train, y_train)
 
         preds = model.predict(test[features])

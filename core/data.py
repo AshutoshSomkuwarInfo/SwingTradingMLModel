@@ -92,6 +92,30 @@ def get_stock_data(ticker, period="5y"):
     macd = ta.trend.MACD(close_prices)
     data["MACD"] = macd.macd()
     data["MACD_Signal"] = macd.macd_signal()
+    
+    # Additional technical indicators for better predictions
+    # Bollinger Bands
+    bollinger = ta.volatility.BollingerBands(close_prices, window=20, window_dev=2)
+    data["BB_Upper"] = bollinger.bollinger_hband()
+    data["BB_Lower"] = bollinger.bollinger_lband()
+    data["BB_Width"] = (data["BB_Upper"] - data["BB_Lower"]) / close_prices
+    
+    # Volume indicators - Simple moving average of volume
+    if "Volume" in data.columns:
+        data["Volume_MA"] = data["Volume"].rolling(window=20).mean()
+    else:
+        data["Volume_MA"] = close_prices.rolling(window=20).mean()
+    
+    # Stochastic Oscillator
+    stochastic = ta.momentum.StochasticOscillator(data["High"], data["Low"], close_prices, window=14)
+    data["Stoch"] = stochastic.stoch()
+    
+    # ATR (Average True Range) for volatility
+    data["ATR"] = ta.volatility.AverageTrueRange(data["High"], data["Low"], close_prices, window=14).average_true_range()
+    
+    # Price relative to moving averages
+    data["Price_to_EMA10"] = close_prices / data["EMA_10"]
+    data["Price_to_EMA20"] = close_prices / data["EMA_20"]
 
     # Drop rows with NaNs introduced by indicators or shift
     data = data.dropna()
