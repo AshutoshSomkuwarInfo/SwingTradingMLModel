@@ -1,13 +1,17 @@
 from xgboost import XGBClassifier
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.utils.class_weight import compute_sample_weight
 import numpy as np
+import pandas as pd
 
 # Base features (original set)
 BASE_FEATURES = ["RSI", "EMA_10", "EMA_20", "MACD"]
 
 # Extended features (includes new technical indicators)
+# Using only reliable, well-tested features
 EXTENDED_FEATURES = [
-    "RSI", "EMA_10", "EMA_20", "MACD",
+    "RSI", "EMA_10", "EMA_20", "MACD", "MACD_Signal",
     "BB_Width", "Stoch", "ATR",
     "Price_to_EMA10", "Price_to_EMA20"
 ]
@@ -15,6 +19,7 @@ EXTENDED_FEATURES = [
 def train_model(data, use_extended_features=False, random_state=42):
     """
     Train XGBoost model with optional extended feature set
+    Balanced hyperparameters for better accuracy
     
     Args:
         data: DataFrame with features and Signal column
@@ -34,7 +39,15 @@ def train_model(data, use_extended_features=False, random_state=42):
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
     
-    # Improved hyperparameters for better performance
+    # Remove NaN rows for better training
+    valid_mask = ~(X_train.isna().any(axis=1) | y_train.isna())
+    X_train = X_train[valid_mask]
+    y_train = y_train[valid_mask]
+    
+    if len(X_train) == 0:
+        raise ValueError("No valid training data after removing NaNs")
+    
+    # Original hyperparameters that worked better - simpler is often better
     model = XGBClassifier(
         n_estimators=100,
         max_depth=6,
@@ -48,7 +61,9 @@ def train_model(data, use_extended_features=False, random_state=42):
         verbosity=0,
         random_state=random_state
     )
+    
     model.fit(X_train, y_train)
+    
     return model, available_features
 
 def predict_signal(model, data, features=None):
@@ -86,16 +101,19 @@ def predict_latest_signal(data):
 
     This function trains an XGB model on data.iloc[:-1] and predicts for data.iloc[-1].
     Returns the string label ("BUY","HOLD","SELL") or None if not enough data.
+    Uses BASE features only - simpler is better for this problem.
     """
-    # Use extended features if available, otherwise base features
+    # Use BASE features only - the original set that worked
     features = BASE_FEATURES
-    if all(f in data.columns for f in ["BB_Width", "Stoch", "ATR"]):
-        features = EXTENDED_FEATURES
-    
     available_features = [f for f in features if f in data.columns]
+    
+    # Must have all base features
+    if len(available_features) < len(BASE_FEATURES):
+        return None
+        
     label_reverse_mapping = {0: "SELL", 1: "HOLD", 2: "BUY"}
 
-    if data is None or len(data) < 5:
+    if data is None or len(data) < 30:
         return None
 
     train = data.iloc[:-1]
@@ -103,7 +121,21 @@ def predict_latest_signal(data):
 
     X_train = train[available_features].astype(float)
     y_train = train["Signal"].map({"SELL": 0, "HOLD": 1, "BUY": 2})
+    
+    # Remove any rows with NaN
+    valid_mask = ~(X_train.isna().any(axis=1) | y_train.isna())
+    X_train = X_train[valid_mask]
+    y_train = y_train[valid_mask]
+    
+    if len(X_train) < 20 or len(y_train) < 20:
+        return None
+    
+    # Check class distribution
+    class_counts = pd.Series(y_train).value_counts()
+    if len(class_counts) < 2:  # Need at least 2 classes
+        return None
 
+    # Original simpler hyperparameters that worked better
     model = XGBClassifier(
         n_estimators=100,
         max_depth=6,
@@ -116,7 +148,13 @@ def predict_latest_signal(data):
         eval_metric="mlogloss", 
         verbosity=0
     )
+    
     model.fit(X_train, y_train)
+    
+    # Check for NaN in test row
+    test_features = test_row[available_features].astype(float)
+    if test_features.isna().any():
+        return None
 
-    pred_numeric = model.predict([test_row[available_features].astype(float).values])[0]
+    pred_numeric = model.predict([test_features.values])[0]
     return label_reverse_mapping.get(pred_numeric)

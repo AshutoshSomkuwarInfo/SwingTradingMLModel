@@ -93,29 +93,54 @@ def get_stock_data(ticker, period="5y"):
     data["MACD"] = macd.macd()
     data["MACD_Signal"] = macd.macd_signal()
     
-    # Additional technical indicators for better predictions
-    # Bollinger Bands
-    bollinger = ta.volatility.BollingerBands(close_prices, window=20, window_dev=2)
-    data["BB_Upper"] = bollinger.bollinger_hband()
-    data["BB_Lower"] = bollinger.bollinger_lband()
+    # Extended features: Bollinger Bands
+    bb = ta.volatility.BollingerBands(close=close_prices, window=20, window_dev=2)
+    data["BB_Upper"] = bb.bollinger_hband()
+    data["BB_Lower"] = bb.bollinger_lband()
     data["BB_Width"] = (data["BB_Upper"] - data["BB_Lower"]) / close_prices
     
-    # Volume indicators - Simple moving average of volume
-    if "Volume" in data.columns:
-        data["Volume_MA"] = data["Volume"].rolling(window=20).mean()
-    else:
-        data["Volume_MA"] = close_prices.rolling(window=20).mean()
+    # Extended features: Stochastic Oscillator
+    stoch = ta.momentum.StochasticOscillator(
+        high=data["High"], 
+        low=data["Low"], 
+        close=close_prices, 
+        window=14
+    )
+    data["Stoch"] = stoch.stoch()
     
-    # Stochastic Oscillator
-    stochastic = ta.momentum.StochasticOscillator(data["High"], data["Low"], close_prices, window=14)
-    data["Stoch"] = stochastic.stoch()
+    # Extended features: ATR (Average True Range)
+    atr = ta.volatility.AverageTrueRange(
+        high=data["High"], 
+        low=data["Low"], 
+        close=close_prices, 
+        window=14
+    )
+    data["ATR"] = atr.average_true_range()
     
-    # ATR (Average True Range) for volatility
-    data["ATR"] = ta.volatility.AverageTrueRange(data["High"], data["Low"], close_prices, window=14).average_true_range()
-    
-    # Price relative to moving averages
+    # Extended features: Price to EMA ratios
     data["Price_to_EMA10"] = close_prices / data["EMA_10"]
     data["Price_to_EMA20"] = close_prices / data["EMA_20"]
+    
+    # Additional momentum features
+    data["Momentum"] = close_prices.pct_change(10)  # 10-day momentum
+    data["Price_Change"] = close_prices.pct_change(1)  # Daily change
+    
+    # Volume features (if Volume column exists)
+    if "Volume" in data.columns and not data["Volume"].isna().all():
+        volume_series = data["Volume"]
+        # Volume moving average
+        data["Volume_MA"] = volume_series.rolling(window=20).mean() / volume_series  # Volume ratio
+        # Volume momentum
+        data["Volume_Change"] = volume_series.pct_change(1)
+    
+    # MACD histogram (difference between MACD and signal)
+    data["MACD_Histogram"] = data["MACD"] - data["MACD_Signal"]
+    
+    # RSI momentum (change in RSI)
+    data["RSI_Change"] = data["RSI"].pct_change(1)
+    
+    # Bollinger Band position (where price is within bands)
+    data["BB_Position"] = (close_prices - data["BB_Lower"]) / (data["BB_Upper"] - data["BB_Lower"])
 
     # Drop rows with NaNs introduced by indicators or shift
     data = data.dropna()
