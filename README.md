@@ -130,9 +130,6 @@ After 3+ months of paper trading, evaluate:
 
 ## ⚠️ Important Disclaimers
 
-### ✅ Backtest Status
-The backtesting module has been **updated with fixes** for look-ahead bias, position tracking, and stop losses. See [BACKTEST_FIXES.md](BACKTEST_FIXES.md) for details. The fixed version is now integrated in the main application.
-
 ### This is NOT:
 - ❌ A get-rich-quick scheme
 - ❌ Guaranteed to make money
