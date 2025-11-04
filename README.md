@@ -32,15 +32,6 @@ A Streamlit-based machine learning dashboard for swing trading analysis, using a
    ```bash
    streamlit run app.py
    
-## 📊 Model Improvements
-
-See [IMPROVEMENTS.md](IMPROVEMENTS.md) for detailed analysis of recent enhancements:
-- Enhanced feature engineering with 9+ technical indicators
-- Optimized XGBoost hyperparameters for better generalization
-- Feature importance analysis and confidence scoring
-- Flexible feature selection system
-- Improved reproducibility and robustness
-- **Enhanced 5-panel charts** - See [CHART_FEATURES.md](CHART_FEATURES.md) for details
 
 ## 🎯 How It Works
 
@@ -54,8 +45,6 @@ See [IMPROVEMENTS.md](IMPROVEMENTS.md) for detailed analysis of recent enhanceme
 ---
 
 ## 👨‍🎓 Beginner's Guide - Step by Step
-
-> **📚 New! Paper Trading is now available in the Streamlit UI!** See [PAPER_TRADING_GUIDE.md](PAPER_TRADING_GUIDE.md) for the complete guide.
 
 ### **Week 1: Understand the Tool**
 
@@ -82,185 +71,6 @@ See [IMPROVEMENTS.md](IMPROVEMENTS.md) for detailed analysis of recent enhanceme
 - Watch MACD for trend changes
 
 **Learning goal**: Understanding technical analysis basics
-
----
-
-### **Week 2-3: Paper Trading Setup**
-
-#### Prerequisites Check
-✅ You should have:
-- Basic Python knowledge (variables, functions, loops)
-- Understanding of risk (never risk more than you can afford)
-- Time to check the system daily
-- Realistic expectations (this is NOT get-rich-quick)
-
-#### Setup Paper Trading
-
-1. **Create a new file** `paper_trading_runner.py`:
-
-```python
-from core.paper_trading import PaperTradingSystem
-from core.model import predict_latest_signal
-from core.data import get_stock_data
-import time
-from datetime import datetime
-
-# Initialize paper trader with $100,000 virtual money
-trader = PaperTradingSystem(
-    initial_capital=100000,
-    risk_config={
-        'max_position_size_pct': 0.20,  # Max 20% per stock
-        'stop_loss_pct': 0.05,  # 5% stop loss
-        'max_daily_loss_pct': 0.05,  # Stop if lose 5% in a day
-        'risk_per_trade_pct': 0.02  # Risk only 2% per trade
-    }
-)
-
-# Your watchlist (start with 3-5 stocks)
-watchlist = ["RELIANCE.NS", "TCS.NS", "INFY.NS"]
-
-def check_signals_daily():
-    """Run this once per day to check for signals"""
-    print(f"\n{'='*50}")
-    print(f"Checking signals at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"{'='*50}\n")
-    
-    for stock in watchlist:
-        print(f"\n📊 Checking {stock}...")
-        
-        # Get data
-        data = get_stock_data(stock, period="1y")
-        if data is None or data.empty:
-            print(f"  ❌ No data available")
-            continue
-        
-        # Get prediction
-        signal = predict_latest_signal(data)
-        print(f"  📡 Signal: {signal}")
-        
-        # Execute trade
-        result = trader.execute_trade(stock, signal)
-        
-        if result['status'] == 'executed':
-            print(f"  ✅ {result['action']} at ₹{result.get('price', 'N/A')}")
-            if 'quantity' in result:
-                print(f"  📦 Quantity: {result['quantity']}")
-        elif result['status'] == 'rejected':
-            print(f"  ❌ Rejected: {result.get('reason', 'Unknown')}")
-        else:
-            print(f"  ⏸️  No action: {result.get('reason', 'HOLD signal')}")
-        
-        # Check for stop losses
-        stops = trader.check_stop_losses()
-        for stop in stops:
-            print(f"  🛑 Stop loss triggered for {stop['ticker']}")
-
-def print_portfolio_status():
-    """Print current portfolio status"""
-    status = trader.get_portfolio_status()
-    
-    print(f"\n{'='*50}")
-    print("📊 PORTFOLIO STATUS")
-    print(f"{'='*50}")
-    print(f"💰 Capital: ₹{status['current_capital']:,.2f}")
-    print(f"📈 Return: {status['total_return_pct']:.2f}%")
-    print(f"📊 Total P&L: ₹{status['total_pnl']:,.2f}")
-    print(f"🎯 Active Positions: {status['active_positions']}")
-    print(f"📦 Total Trades: {status['total_trades']}")
-    print(f"📉 Drawdown: {status['current_drawdown_pct']:.2f}%")
-    
-    if status['max_drawdown_exceeded']:
-        print(f"  ⚠️  MAX DRAWDOWN EXCEEDED - Trading stopped!")
-    
-    if status['daily_loss_exceeded']:
-        print(f"  ⚠️  DAILY LOSS LIMIT EXCEEDED!")
-
-if __name__ == "__main__":
-    print("🚀 Starting Paper Trading System")
-    print("Press Ctrl+C to stop\n")
-    
-    try:
-        while True:
-            # Check signals (run this daily at market close ~3:30 PM)
-            # For testing, run immediately
-            check_signals_daily()
-            print_portfolio_status()
-            
-            print("\n⏰ Waiting 24 hours before next check...")
-            print("(In production, this would run once per day)")
-            
-            # Wait 24 hours (86400 seconds)
-            # For testing, use 60 seconds = 1 minute
-            time.sleep(60)  # Change to 86400 for daily checks
-            
-    except KeyboardInterrupt:
-        print("\n\n👋 Stopping paper trader...")
-        print_portfolio_status()
-```
-
-2. **Install schedule library** (optional for automatic daily runs):
-```bash
-pip install schedule
-```
-
-3. **Run paper trading**:
-```bash
-python paper_trading_runner.py
-```
-
----
-
-### **Week 4-12: Practice and Learn**
-
-#### Daily Routine (15 minutes/day)
-
-**Morning (9:00 AM):**
-- Check portfolio status
-- Review any overnight news
-- Check if markets are open
-
-**Evening (3:45 PM - after market close):**
-- Run the signal checker
-- Review any trades executed
-- Note what happened in your trading journal
-
-**Trading Journal Template**:
-```
-Date: 2024-XX-XX
-Watchlist: RELIANCE.NS, TCS.NS, INFY.NS
-
-Signals:
-- RELIANCE: BUY at ₹2500
-- TCS: HOLD
-- INFY: SELL at ₹1500
-
-Observations:
-- Market was volatile today
-- RELIANCE signal executed, quantity 20
-- Learning: X indicator was accurate
-
-Portfolio: ₹102,000 (up 2%)
-```
-
-#### Weekly Review (1 hour/week)
-
-Every Sunday, review:
-1. **What worked** - Which signals were profitable?
-2. **What didn't** - Which signals lost money?
-3. **Market conditions** - Bull market? Bear market? Trending? Sideways?
-4. **Model accuracy** - How accurate were predictions?
-5. **Risk management** - Did stop losses work as expected?
-
-#### Monthly Analysis
-
-Calculate these metrics:
-- **Win Rate**: (Winning trades / Total trades) × 100
-- **Average Win**: Average profit of winning trades
-- **Average Loss**: Average loss of losing trades
-- **Profit Factor**: Total wins / Total losses
-- **Total Return**: (Current capital - Starting capital) / Starting capital
-
----
 
 ### **Month 4-6: Evaluation**
 
@@ -343,25 +153,6 @@ The backtesting module has been **updated with fixes** for look-ahead bias, posi
 - ✅ You have time to monitor the system
 - ✅ You can follow the rules (especially stop losses)
 
----
-
-## 🆘 Getting Help
-
-### Common Issues:
-
-**Issue**: "No signals being generated"
-- **Solution**: Check if you have enough historical data (at least 1 year)
-
-**Issue**: "Trades not executing"
-- **Solution**: Check risk limits - you may have hit daily loss limit or max drawdown
-
-**Issue**: "Unexpected losses"
-- **Solution**: Review your stop losses and position sizing. Market conditions may have changed.
-
-**Issue**: "Don't understand the indicators"
-- **Solution**: Read [CHART_FEATURES.md](CHART_FEATURES.md) and study each indicator separately
-
----
 
 ## 📊 Success Metrics
 
